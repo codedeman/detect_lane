@@ -31,8 +31,10 @@ while True:
 
     frame = cv2.GaussianBlur(orig_frame,(5,5),0)
     hsv = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
+
     low_yellow = np.array([18,94,140])
     up_yellow =  np.array([48,255,255])
+
     mask = cv2.inRange(hsv,low_yellow,up_yellow)
     edges = cv2.Canny(mask, 75, 150)
     lines  = cv2.HoughLinesP(edges,1,np.pi/180, 50, maxLineGap=250)
@@ -43,10 +45,11 @@ while True:
 
 
 
-    # cv2.imshow("frame",frame)
-    # cv2.imshow("Mask",mask)
+    cv2.imshow("frame",frame)
+    cv2.imshow("Mask",mask)
     cv2.imshow("edges",edges)
     key = cv2.waitKey(25)
+    print(key)
     if key == 27:
         break
 video.release()
