@@ -1,3 +1,41 @@
+import cv2
+import numpy as np
+import matplotlib.pyplot as plt
+
+trainData = np.random.randint(0,100,(25,2)).astype(np.float32)
+result  = np.random.randint(0,2,(25,1)).astype(np.float32)
+red = trainData[result.ravel()==1]
+blue = trainData[result.ravel()==0]
+
+print('blue color',blue)
+newMember  = np.random.randint(0,2,(1,2)).astype(np.float);
+plt.scatter(red[:,0],red[:,1],100,'r','s')
+plt.scatter(blue[:,0],blue[:,1],100,'b','^')
+plt.scatter(newMember[:,0],newMember[:,1],100, 'g','o')
+
+newcomer = np.random.randint(0,100,(1,2)).astype(np.float32)
+plt.scatter(newcomer[:,0],newcomer[:,1],80,'g','o')
+# knn = cv2.ml.KNeareast_create()
+
+# knn = cv2.ml.KNearest_create()
+# knn.train(trainData,0, result)
+# results = knn.findNearest(newMember, 3)
+knn = cv2.ml.KNearest_create()
+knn.train(trainData, cv2.ml.ROW_SAMPLE, result)
+ret, results, neighbours ,dist = knn.findNearest(newcomer, 2)
+
+plt.show()
+
+
+# print(result)
+#
+# print('train data',trainData)
+
+
+
+
+
+#
 # import pygame
 # pygame.init()
 #

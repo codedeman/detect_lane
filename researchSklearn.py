@@ -13,7 +13,7 @@ clf.fit(x,y)
 
 # print('Prediction', clf.predict(digits.data[-1]))
 
-print('Prediction:',clf.predict(digits.data[-2:]))
+print('Prediction:',clf.predict(digits.data[-3:]))
 
 plt.imshow(digits.images[-2], cmap=plt.cm.gray_r,interpolation="nearest")
 plt.show()
