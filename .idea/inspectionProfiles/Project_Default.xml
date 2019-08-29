@@ -5,6 +5,16 @@
       <option name="ignoredErrors">
         <list>
           <option value="W292" />
+          <option value="E402" />
+          <option value="E303" />
+          <option value="W191" />
+        </list>
+      </option>
+    </inspection_tool>
+    <inspection_tool class="PyUnresolvedReferencesInspection" enabled="true" level="WARNING" enabled_by_default="true">
+      <option name="ignoredIdentifiers">
+        <list>
+          <option value="generate_tfrecord.object_detection" />
         </list>
       </option>
     </inspection_tool>

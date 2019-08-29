@@ -3,5 +3,6 @@
   <component name="VcsDirectoryMappings">
     <mapping directory="$PROJECT_DIR$" vcs="Git" />
     <mapping directory="$PROJECT_DIR$/detect_lane-" vcs="Git" />
+    <mapping directory="$PROJECT_DIR$/model/models" vcs="Git" />
   </component>
 </project>

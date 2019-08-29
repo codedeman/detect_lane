@@ -1,140 +1,149 @@
+import numpy as np
+import os
+import six.moves.urllib as urllib
+import sys
+import tarfile
+import tensorflow as tf
+import zipfile
+
+from collections import defaultdict
+from io import StringIO
+from matplotlib import pyplot as plt
+from PIL import Image
 
 import cv2
-import numpy as np
-from scipy.stats import itemfreq
+cap = cv2.VideoCapture(1)
+
+# This is needed since the notebook is stored in the object_detection folder.
+sys.path.append("..")
 
 
-# I took this solution from:
-# https://stackoverflow.com/questions/43111029/how-to-find-the-average-colour-of-an-image-in-python-with-opencv#43111221
-def get_dominant_color(image, n_colors):
-    pixels = np.float32(image).reshape((-1, 3))
-    criteria = (cv2.TERM_CRITERIA_EPS + cv2.TERM_CRITERIA_MAX_ITER, 200, .1)
-    flags = cv2.KMEANS_RANDOM_CENTERS
-    flags, labels, centroids = cv2.kmeans(
-        pixels, n_colors, None, criteria, 10, flags)
-    palette = np.uint8(centroids)
-    return palette[np.argmax(itemfreq(labels)[:, -1])]
+# ## Object detection imports
+# Here are the imports from the object detection module.
+
+# In[3]:
+
+from utils import label_map_util
+
+from utils import visualization_utils as vis_util
 
 
-clicked = False
-def onMouse(event, x, y, flags, param):
-    global clicked
-    if event == cv2.EVENT_LBUTTONUP:
-        clicked = True
+# # Model preparation
 
-
-cameraCapture = cv2.VideoCapture(0)  # Put here ID of your camera (/dev/videoN)
-cv2.namedWindow('camera')
-cv2.setMouseCallback('camera', onMouse)
-
-# Read and process frames in loop
-success, frame = cameraCapture.read()
-while success and not clicked:
-    cv2.waitKey(1)
-    success, frame = cameraCapture.read()
-
-    # Conversion to gray is required to speed up calculations, we would detect
-    # the same circles in BGR and GRAY anyways.
-    gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-    # Then we blur the entire frame to prevent accidental false circle
-    # detections
-    img = cv2.medianBlur(gray, 37)
-    # Finally, OpenCV built-in algorithm searching for circles. Arguments are a
-    # bit tricky. The most useful are minDist (equals to 50 in this example)
-    # and param{1,2}. First one represents distance between centers of detected
-    # circles so we never have multiple circles in one place. However,
-    # increasing this parameter too much may prevent detection of some circles.
-    # Increasing param1 increases count of detected circles. Increasing param2
-    # drops more false circles.
-    circles = cv2.HoughCircles(img, cv2.HOUGH_GRADIENT,
-                              1, 50, param1=120, param2=40)
-
-    if not circles is None:
-        circles = np.uint16(np.around(circles))
-        # Filter the biggest circle, we don't want far signs to be detected
-        # instead of close ones.
-        max_r, max_i = 0, 0
-        for i in range(len(circles[:, :, 2][0])):
-            if circles[:, :, 2][0][i] > 50 and circles[:, :, 2][0][i] > max_r:
-                max_i = i
-                max_r = circles[:, :, 2][0][i]
-        x, y, r = circles[:, :, :][0][max_i]
-        # This check prevents program crash when trying to index list out of
-        # its range. We actually cut a square with the whole circle inside.
-        if y > r and x > r:
-            square = frame[y-r:y+r, x-r:x+r]
-
-            dominant_color = get_dominant_color(square, 2)
-            if dominant_color[2] > 100:
-                # Stop sign is red, so we check if there is a lot of red color
-                # in circle.
-                print("STOP")
-            elif dominant_color[0] > 80:
-                # Other signs are blue.
-
-                # Here we cut 3 zones from the circle, then count their
-                # dominant color and finally compare.
-                zone_0 = square[square.shape[0]*3//8:square.shape[0]
-                                * 5//8, square.shape[1]*1//8:square.shape[1]*3//8]
-                zone_0_color = get_dominant_color(zone_0, 1)
-
-                zone_1 = square[square.shape[0]*1//8:square.shape[0]
-                                * 3//8, square.shape[1]*3//8:square.shape[1]*5//8]
-                zone_1_color = get_dominant_color(zone_1, 1)
-
-                zone_2 = square[square.shape[0]*3//8:square.shape[0]
-                                * 5//8, square.shape[1]*5//8:square.shape[1]*7//8]
-
-                zone_2_color = get_dominant_color(zone_2, 1)
-
-                # cv2.imshow(zone_2_color)
-
-                if zone_1_color[2] < 60:
-                    if sum(zone_0_color) > sum(zone_2_color):
-                        print("LEFT")
-                    else:
-                        print("RIGHT")
-                else:
-                    if sum(zone_1_color) > sum(zone_0_color) and sum(zone_1_color) > sum(zone_2_color):
-                        print("FORWARD")
-                    elif sum(zone_0_color) > sum(zone_2_color):
-                        print("FORWARD AND LEFT")
-                    else:
-                        print("FORWARD AND RIGHT")
-            else:
-                print("N/A")
-
-        # Draw all detected circles on the screen
-        for i in circles[0, :]:
-            cv2.circle(frame, (i[0], i[1]), i[2], (0, 255, 0), 2)
-            cv2.circle(frame, (i[0], i[1]), 2, (0, 0, 255), 3)
-    cv2.imshow('camera', frame)
-
-
-cv2.destroyAllWindows()
-cameraCapture.release()
-
-
-# import tensorflow as tf
+# ## Variables
 #
-# import tensorflow as tf
-# mnist = tf.keras.datasets.mnist
+# Any model exported using the `export_inference_graph.py` tool can be loaded here simply by changing `PATH_TO_CKPT` to point to a new .pb file.
 #
-# (x_train, y_train),(x_test, y_test) = mnist.load_data()
-# x_train, x_test = x_train / 255.0, x_test / 255.0
-#
-# model = tf.keras.models.Sequential([
-#   tf.keras.layers.Flatten(input_shape=(28, 28)),
-#   tf.keras.layers.Dense(512, activation=tf.nn.relu),
-#   tf.keras.layers.Dropout(0.2),
-#   tf.keras.layers.Dense(10, activation=tf.nn.softmax)
-# ])
-# model.compile(optimizer='adam',
-#               loss='sparse_categorical_crossentropy',
-#               metrics=['accuracy'])
-#
-# model.fit(x_train, y_train, epochs=5)
-# model.evaluate(x_test, y_test)
-# hello = tf.constant('Hello, TensorFlow!')
-# sess = tf.Session()
-# sess.run(hello)
+# By default we use an "SSD with Mobilenet" model here. See the [detection model zoo](https://github.com/tensorflow/models/blob/master/object_detection/g3doc/detection_model_zoo.md) for a list of other models that can be run out-of-the-box with varying speeds and accuracies.
+
+# In[4]:
+
+# What model to download.
+MODEL_NAME = 'ssd_mobilenet_v1_coco_11_06_2017'
+MODEL_FILE = MODEL_NAME + '.tar.gz'
+DOWNLOAD_BASE = 'http://download.tensorflow.org/models/object_detection/'
+
+# Path to frozen detection graph. This is the actual model that is used for the object detection.
+PATH_TO_CKPT = MODEL_NAME + '/frozen_inference_graph.pb'
+
+# List of the strings that is used to add correct label for each box.
+PATH_TO_LABELS = os.path.join('data', 'mscoco_label_map.pbtxt')
+
+NUM_CLASSES = 90
+
+
+# ## Download Model
+
+# In[5]:
+
+opener = urllib.request.URLopener()
+opener.retrieve(DOWNLOAD_BASE + MODEL_FILE, MODEL_FILE)
+tar_file = tarfile.open(MODEL_FILE)
+for file in tar_file.getmembers():
+  file_name = os.path.basename(file.name)
+  if 'frozen_inference_graph.pb' in file_name:
+    tar_file.extract(file, os.getcwd())
+
+
+# ## Load a (frozen) Tensorflow model into memory.
+
+# In[6]:
+
+detection_graph = tf.Graph()
+with detection_graph.as_default():
+  od_graph_def = tf.GraphDef()
+  with tf.gfile.GFile(PATH_TO_CKPT, 'rb') as fid:
+    serialized_graph = fid.read()
+    od_graph_def.ParseFromString(serialized_graph)
+    tf.import_graph_def(od_graph_def, name='')
+
+
+# ## Loading label map
+# Label maps map indices to category names, so that when our convolution network predicts `5`, we know that this corresponds to `airplane`.  Here we use internal utility functions, but anything that returns a dictionary mapping integers to appropriate string labels would be fine
+
+# In[7]:
+
+label_map = label_map_util.load_labelmap(PATH_TO_LABELS)
+categories = label_map_util.convert_label_map_to_categories(label_map, max_num_classes=NUM_CLASSES, use_display_name=True)
+category_index = label_map_util.create_category_index(categories)
+
+
+# ## Helper code
+
+# In[8]:
+
+def load_image_into_numpy_array(image):
+  (im_width, im_height) = image.size
+  return np.array(image.getdata()).reshape(
+      (im_height, im_width, 3)).astype(np.uint8)
+
+
+# # Detection
+
+# In[9]:
+
+# For the sake of simplicity we will use only 2 images:
+# image1.jpg
+# image2.jpg
+# If you want to test the code with your images, just add path to the images to the TEST_IMAGE_PATHS.
+PATH_TO_TEST_IMAGES_DIR = 'test_images'
+TEST_IMAGE_PATHS = [ os.path.join(PATH_TO_TEST_IMAGES_DIR, 'image{}.jpg'.format(i)) for i in range(1, 3) ]
+
+# Size, in inches, of the output images.
+IMAGE_SIZE = (12, 8)
+
+
+# In[10]:
+
+with detection_graph.as_default():
+  with tf.Session(graph=detection_graph) as sess:
+    while True:
+      ret, image_np = cap.read()
+      # Expand dimensions since the model expects images to have shape: [1, None, None, 3]
+      image_np_expanded = np.expand_dims(image_np, axis=0)
+      image_tensor = detection_graph.get_tensor_by_name('image_tensor:0')
+      # Each box represents a part of the image where a particular object was detected.
+      boxes = detection_graph.get_tensor_by_name('detection_boxes:0')
+      # Each score represent how level of confidence for each of the objects.
+      # Score is shown on the result image, together with the class label.
+      scores = detection_graph.get_tensor_by_name('detection_scores:0')
+      classes = detection_graph.get_tensor_by_name('detection_classes:0')
+      num_detections = detection_graph.get_tensor_by_name('num_detections:0')
+      # Actual detection.
+      (boxes, scores, classes, num_detections) = sess.run(
+          [boxes, scores, classes, num_detections],
+          feed_dict={image_tensor: image_np_expanded})
+      # Visualization of the results of a detection.
+      vis_util.visualize_boxes_and_labels_on_image_array(
+          image_np,
+          np.squeeze(boxes),
+          np.squeeze(classes).astype(np.int32),
+          np.squeeze(scores),
+          category_index,
+          use_normalized_coordinates=True,
+          line_thickness=8)
+
+      cv2.imshow('object detection', cv2.resize(image_np, (800,600)))
+      if cv2.waitKey(25) & 0xFF == ord('q'):
+        cv2.destroyAllWindows()
+        break
